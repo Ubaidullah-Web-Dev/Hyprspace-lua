@@ -11,6 +11,7 @@
       owner = "hyprwm";
       repo = "Hyprland";
       type = "github";
+      ref = "v0.54.2";
       inputs.systems.follows = "systems";
     };
   };

@@ -2,9 +2,6 @@
 #include "Globals.hpp"
 
 bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
-    bool Return;
-
-    const auto targetWindow = g_pInputManager->m_currentlyDraggedWindow.lock();
 
     // this is for click to exit, we set a timeout for button release
     bool couldExit = false;
@@ -33,35 +30,35 @@ bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
         targetWorkspace = g_pCompositor->createNewWorkspace(targetWorkspaceID, getOwner()->m_id);
     }
 
-    // if the cursor is hovering over workspace, clicking should switch workspace instead of starting window drag
-    if (Config::autoDrag && (targetWorkspace == nullptr || !pressed)) {
-        // when overview is active, always drag windows on mouse click
-        if (const auto curWindow = g_pInputManager->m_currentlyDraggedWindow.lock()) {
-            g_pLayoutManager->getCurrentLayout()->onEndDragWindow();
-            g_pInputManager->m_currentlyDraggedWindow.reset();
-            g_pInputManager->m_dragMode = MBIND_INVALID;
+    if (pressed) {
+        // on press: check if cursor is over a window thumbnail and begin drag
+        for (auto& [wref, wbox] : windowBoxes) {
+            if (wbox.containsPoint(coords)) {
+                draggedWindowRef = wref;
+                return false;
+            }
         }
-        std::string keybind = (pressed ? "1" : "0") + std::string("movewindow");
-        (*(tMouseKeybind)pMouseKeybind)(keybind);
+    } else if (auto dw = draggedWindowRef.lock()) {
+        // on release: drop dragged window into target workspace
+        draggedWindowRef.reset();
+        if (targetWorkspace != nullptr) {
+            g_pCompositor->moveWindowToWorkspaceSafe(dw, targetWorkspace);
+            if (dw->m_isFloating) {
+                auto targetPos = getOwner()->m_position + (getOwner()->m_size / 2.) - (dw->m_reportedSize / 2.);
+                dw->m_position = targetPos;
+                *dw->m_realPosition = targetPos;
+            }
+            if (Config::switchOnDrop) {
+                g_pCompositor->getMonitorFromID(targetWorkspace->m_monitor->m_id)->changeWorkspace(targetWorkspace->m_id);
+                if (Config::exitOnSwitch && active) hide();
+            }
+            updateLayout();
+        }
+        return false;
     }
-    Return = false;
 
-    // release window on workspace to drop it in
-    if (targetWindow && targetWorkspace != nullptr && !pressed) {
-        g_pCompositor->moveWindowToWorkspaceSafe(targetWindow, targetWorkspace);
-        if (targetWindow->m_isFloating) {
-            auto targetPos = getOwner()->m_position + (getOwner()->m_size / 2.) - (targetWindow->m_reportedSize / 2.);
-            targetWindow->m_position = targetPos;
-            *targetWindow->m_realPosition = targetPos;
-        }
-        if (Config::switchOnDrop) {
-            g_pCompositor->getMonitorFromID(targetWorkspace->m_monitor->m_id)->changeWorkspace(targetWorkspace->m_id);
-            if (Config::exitOnSwitch && active) hide();
-        }
-        updateLayout();
-    }
     // click workspace to change to workspace and exit overview
-    else if (targetWorkspace && !pressed) {
+    if (targetWorkspace && !pressed) {
         if (targetWorkspace->m_isSpecialWorkspace)
             getOwner()->activeSpecialWorkspaceID() == targetWorkspaceID ? getOwner()->setSpecialWorkspace(nullptr) : getOwner()->setSpecialWorkspace(targetWorkspaceID);
         else {
@@ -72,20 +69,26 @@ bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
     // click elsewhere to exit overview
     else if (Config::exitOnClick && targetWorkspace == nullptr && active && couldExit && !pressed) hide();
 
-    return Return;
+    return false;
 }
 
-bool CHyprspaceWidget::axisEvent(double delta, Vector2D coords) {
+bool CHyprspaceWidget::axisEvent(double delta, wl_pointer_axis axis, Vector2D coords) {
 
     const auto owner = getOwner();
     CBox widgetBox = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
     if (Config::onBottom) widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - ((Config::panelHeight + Config::reservedArea) * owner->m_scale) + curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
 
-    // scroll through panel if cursor is on it
+    // horizontal scroll pans the panel
+    if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+        *workspaceScrollOffset = workspaceScrollOffset->goal() - delta * 2;
+        return false;
+    }
+
+    // scroll through panel if cursor is on it (vertical scroll)
     if (widgetBox.containsPoint(coords * getOwner()->m_scale)) {
         *workspaceScrollOffset = workspaceScrollOffset->goal() - delta * 2;
     }
-    // otherwise, scroll to switch active workspace
+    // otherwise, vertical scroll switches active workspace
     else {
         if (delta < 0) {
             SWorkspaceIDName wsIDName = getWorkspaceIDNameFromString("r-1");
@@ -105,7 +108,6 @@ bool CHyprspaceWidget::axisEvent(double delta, Vector2D coords) {
         }
     }
 
-
     return false;
 }
 
@@ -122,7 +124,7 @@ bool CHyprspaceWidget::beginSwipe(IPointer::SSwipeBeginEvent e) {
 }
 
 bool CHyprspaceWidget::updateSwipe(IPointer::SSwipeUpdateEvent e) {
-    int fingers = std::any_cast<Hyprlang::INT>(HyprlandAPI::getConfigValue(pHandle, "gestures:workspace_swipe_fingers")->getValue());
+    constexpr int fingers = 3;
     int distance = std::any_cast<Hyprlang::INT>(HyprlandAPI::getConfigValue(pHandle, "gestures:workspace_swipe_distance")->getValue());
 
     // restrict swipe to a axis with the most significant movement to prevent misinput

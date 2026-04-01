@@ -14,6 +14,22 @@ CHyprspaceWidget::CHyprspaceWidget(uint64_t inOwnerID) {
         curAnimation.internalSpeed = Config::overrideAnimSpeed;
 
     g_pAnimationManager->createAnimation(0.F, curYOffset, curAnimationConfig.pValues.lock(), AVARDAMAGE_ENTIRE);
+    curYOffset->setCallbackOnEnd([this](auto) {
+        if (!active) {
+            auto owner = getOwner();
+            if (owner) {
+                g_pHyprRenderer->damageMonitor(owner);
+                for (auto& ws : g_pCompositor->getWorkspaces()) {
+                    if (!ws || ws->m_monitor->m_id != ownerID) continue;
+                    for (auto& w : g_pCompositor->m_windows) {
+                        if (!w || w->m_workspace != ws || !w->m_isMapped) continue;
+                        g_pHyprRenderer->damageWindow(w);
+                    }
+                }
+                g_pCompositor->scheduleFrameForMonitor(owner);
+            }
+        }
+    }, false);
     g_pAnimationManager->createAnimation(0.F, workspaceScrollOffset, curAnimationConfig.pValues.lock(), AVARDAMAGE_ENTIRE);
     curYOffset->setValueAndWarp(Config::panelHeight);
     workspaceScrollOffset->setValueAndWarp(0);
@@ -40,7 +56,7 @@ void CHyprspaceWidget::show() {
                     // fixes youtube fullscreen not restoring properly
                     if (ws->m_fullscreenMode == FSMODE_FULLSCREEN) w->m_wantsInitialFullscreen = true;
                     // we use the getWindowFromHandle function to prevent dangling pointers
-                    prevFullscreen.emplace_back(std::make_tuple((uint32_t)(((uint64_t)w.get()) & 0xFFFFFFFF), ws->m_fullscreenMode));
+                    prevFullscreen.emplace_back(std::make_tuple(PHLWINDOWREF(w), ws->m_fullscreenMode));
                     g_pCompositor->setWindowFullscreenState(w, Desktop::View::SFullscreenState{.internal = FSMODE_NONE, .client = FSMODE_NONE});
                 }
             }
@@ -106,9 +122,10 @@ void CHyprspaceWidget::hide() {
 
     // restore fullscreen state
     for (auto& fs : prevFullscreen) {
-        const auto w = g_pCompositor->getWindowFromHandle(std::get<0>(fs));
+        const auto w = std::get<0>(fs).lock();
+        if (!w) continue;
         const auto oFullscreenMode = std::get<1>(fs);
-        g_pCompositor->setWindowFullscreenState(w, Desktop::View::SFullscreenState(oFullscreenMode)); 
+        g_pCompositor->setWindowFullscreenState(w, Desktop::View::SFullscreenState(oFullscreenMode));
         if (oFullscreenMode == FSMODE_FULLSCREEN) w->m_wantsInitialFullscreen = false;
     }
     prevFullscreen.clear();
@@ -122,6 +139,14 @@ void CHyprspaceWidget::hide() {
     }
 
     updateLayout();
+    g_pHyprRenderer->damageMonitor(owner);
+    for (auto& ws : g_pCompositor->getWorkspaces()) {
+        if (!ws || ws->m_monitor->m_id != ownerID) continue;
+        for (auto& w : g_pCompositor->m_windows) {
+            if (!w || w->m_workspace != ws || !w->m_isMapped) continue;
+            g_pHyprRenderer->damageWindow(w);
+        }
+    }
     g_pCompositor->scheduleFrameForMonitor(owner);
 }
 
@@ -136,6 +161,22 @@ void CHyprspaceWidget::updateConfig() {
         curAnimation.internalSpeed = Config::overrideAnimSpeed;
 
     g_pAnimationManager->createAnimation(0.F, curYOffset, curAnimationConfig.pValues.lock(), AVARDAMAGE_ENTIRE);
+    curYOffset->setCallbackOnEnd([this](auto) {
+        if (!active) {
+            auto owner = getOwner();
+            if (owner) {
+                g_pHyprRenderer->damageMonitor(owner);
+                for (auto& ws : g_pCompositor->getWorkspaces()) {
+                    if (!ws || ws->m_monitor->m_id != ownerID) continue;
+                    for (auto& w : g_pCompositor->m_windows) {
+                        if (!w || w->m_workspace != ws || !w->m_isMapped) continue;
+                        g_pHyprRenderer->damageWindow(w);
+                    }
+                }
+                g_pCompositor->scheduleFrameForMonitor(owner);
+            }
+        }
+    }, false);
     g_pAnimationManager->createAnimation(0.F, workspaceScrollOffset, curAnimationConfig.pValues.lock(), AVARDAMAGE_ENTIRE);
     curYOffset->setValueAndWarp(Config::panelHeight);
     workspaceScrollOffset->setValueAndWarp(0);
