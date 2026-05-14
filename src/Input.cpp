@@ -3,6 +3,10 @@
 #include "Overview.hpp"
 #include "Globals.hpp"
 
+// 컴পাইলারের Deprecation Warning ইগনোর করার জন্য প্রাগমা যুক্ত করা হলো
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
     bool Return;
 
