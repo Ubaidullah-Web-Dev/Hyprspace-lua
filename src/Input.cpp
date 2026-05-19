@@ -1,11 +1,32 @@
-#include <hyprland/src/desktop/view/Window.hpp>
-
 #include "Overview.hpp"
 #include "Globals.hpp"
+
+#include <cmath>
+
+#include <hyprland/src/desktop/view/Window.hpp>
 
 // 컴পাইলারের Deprecation Warning ইগনোর করার জন্য প্রাগমা যুক্ত করা হলো
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+namespace {
+
+double panelTravel(PHLMONITOR owner) {
+    if (!owner)
+        return 0.;
+
+    return (Config::panelHeight + Config::reservedArea) * owner->m_scale;
+}
+
+double swipeClosedOffset() {
+    return -Config::swipeClosedPadding;
+}
+
+double swipeVisibleThreshold() {
+    return Config::swipeThreshold;
+}
+
+}
 
 bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
     bool Return;
@@ -18,7 +39,7 @@ bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
     if (pressed)
         lastPressedTime = std::chrono::high_resolution_clock::now();
     else
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastPressedTime).count() < 200)
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastPressedTime).count() < Config::clickReleaseThresholdMs)
             couldExit = true;
 
     int targetWorkspaceID = SPECIAL_WORKSPACE_START - 1;
@@ -88,17 +109,19 @@ bool CHyprspaceWidget::buttonEvent(bool pressed, Vector2D coords) {
 bool CHyprspaceWidget::axisEvent(double delta, wl_pointer_axis axis, Vector2D coords) {
 
     const auto owner = getOwner();
-    CBox widgetBox = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
-    if (Config::onBottom) widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - ((Config::panelHeight + Config::reservedArea) * owner->m_scale) + curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
+    const auto travel = panelTravel(owner);
+    CBox widgetBox    = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, travel};
+    if (Config::onBottom)
+        widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - travel + curYOffset->value(), owner->m_transformedSize.x, travel};
 
     // scroll through panel if cursor is on it
     if (widgetBox.containsPoint(coords * getOwner()->m_scale)) {
         // only horizontal scroll pans the panel; ignore vertical scroll here
         if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL)
-            *workspaceScrollOffset = workspaceScrollOffset->goal() - delta * 2;
+            *workspaceScrollOffset = workspaceScrollOffset->goal() - delta * Config::workspaceScrollSpeed;
     }
     // otherwise, scroll to switch active workspace (vertical scroll only)
-    else if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
+    else if (Config::autoScroll && axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
         if (delta < 0) {
             SWorkspaceIDName wsIDName = getWorkspaceIDNameFromString("r-1");
             if (g_pCompositor->getWorkspaceByID(wsIDName.id) == nullptr) {
@@ -133,38 +156,49 @@ bool CHyprspaceWidget::beginSwipe(IPointer::SSwipeBeginEvent e) {
 }
 
 bool CHyprspaceWidget::updateSwipe(IPointer::SSwipeUpdateEvent e) {
-    constexpr int fingers = 3;
-    int distance = std::any_cast<Hyprlang::INT>(HyprlandAPI::getConfigValue(pHandle, "gestures:workspace_swipe_distance")->getValue());
-
     // restrict swipe to a axis with the most significant movement to prevent misinput
-    if (abs(e.delta.x) / abs(e.delta.y) < 1) {
-        if (swiping && e.fingers == (uint32_t)fingers) {
+    const auto absY = std::abs(e.delta.y);
+    const auto verticalSwipe = absY > 0.0 && (std::abs(e.delta.x) / absY) < 1.0;
 
-            float currentScaling = g_pCompositor->getMonitorFromCursor()->m_size.x / distance;
+    if (verticalSwipe) {
+        if (swiping && e.fingers == static_cast<uint32_t>(Config::swipeFingers)) {
+
+            const auto owner = getOwner();
+            if (!owner)
+                return true;
+
+            const auto distance       = std::max(Config::swipeDistance, 1);
+            const auto currentScaling = owner->m_size.x / static_cast<float>(distance);
+            const auto travel         = panelTravel(owner);
 
             double scrollDifferential = e.delta.y * (Config::reverseSwipe ? -1 : 1) * (Config::onBottom ? -1 : 1) * currentScaling;
 
             curSwipeOffset += scrollDifferential;
-            curSwipeOffset = std::clamp<double>(curSwipeOffset, -10, ((Config::panelHeight + Config::reservedArea) * getOwner()->m_scale));
+            curSwipeOffset = std::clamp<double>(curSwipeOffset, swipeClosedOffset(), travel);
 
             avgSwipeSpeed = (avgSwipeSpeed * swipePoints + scrollDifferential) / (swipePoints + 1);
+            swipePoints++;
 
-            curYOffset->setValueAndWarp(((Config::panelHeight + Config::reservedArea) * getOwner()->m_scale) - curSwipeOffset);
+            curYOffset->setValueAndWarp(travel - curSwipeOffset);
 
-            if (curSwipeOffset < 10 && active) hide();
-            else if (curSwipeOffset > 10 && !active) show();
+            if (curSwipeOffset < swipeVisibleThreshold() && active)
+                hide();
+            else if (curSwipeOffset > swipeVisibleThreshold() && !active)
+                show();
 
             return false;
         }
     }
     else {
         // scroll through panel
-        if (e.fingers == (uint32_t)fingers && active) {
+        if (e.fingers == static_cast<uint32_t>(Config::swipeFingers) && active) {
             const auto owner = getOwner();
-            CBox widgetBox = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
-            if (Config::onBottom) widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - ((Config::panelHeight + Config::reservedArea) * owner->m_scale) + curYOffset->value(), owner->m_transformedSize.x, (Config::panelHeight + Config::reservedArea) * owner->m_scale};
+            const auto travel = panelTravel(owner);
+            CBox widgetBox    = {owner->m_position.x, owner->m_position.y - curYOffset->value(), owner->m_transformedSize.x, travel};
+            if (Config::onBottom)
+                widgetBox = {owner->m_position.x, owner->m_position.y + owner->m_transformedSize.y - travel + curYOffset->value(), owner->m_transformedSize.x, travel};
             if (widgetBox.containsPoint(g_pInputManager->getMouseCoordsInternal() * getOwner()->m_scale)) {
-                workspaceScrollOffset->setValueAndWarp(workspaceScrollOffset->goal() + e.delta.x * 2);
+                workspaceScrollOffset->setValueAndWarp(workspaceScrollOffset->goal() + e.delta.x * Config::workspaceScrollSpeed);
                 return false;
             }
         }
@@ -176,46 +210,50 @@ bool CHyprspaceWidget::updateSwipe(IPointer::SSwipeUpdateEvent e) {
 // janky asf
 bool CHyprspaceWidget::endSwipe(IPointer::SSwipeEndEvent e) {
     swiping = false;
+    const auto owner = getOwner();
+    const auto travel = panelTravel(owner);
     // force cancel swipe
     if (e.cancelled) {
-        if (active) hide();
-        curSwipeOffset = -10.;
+        if (active)
+            hide();
+        curSwipeOffset = swipeClosedOffset();
     }
     else {
-        int swipeForceSpeed = std::any_cast<Hyprlang::INT>(HyprlandAPI::getConfigValue(pHandle, "gestures:workspace_swipe_min_speed_to_force")->getValue());
-        float cancelRatio = std::any_cast<Hyprlang::FLOAT>(HyprlandAPI::getConfigValue(pHandle, "gestures:workspace_swipe_cancel_ratio")->getValue());
-        double swipeTravel = (Config::panelHeight + Config::reservedArea) * getOwner()->m_scale;
         if (activeBeforeSwipe) {
-            if ((curSwipeOffset < swipeTravel * cancelRatio) || avgSwipeSpeed < -swipeForceSpeed) {
-                if (active) hide();
+            if ((curSwipeOffset < travel * Config::swipeCancelRatio) || avgSwipeSpeed < -Config::swipeForceSpeed) {
+                if (active)
+                    hide();
                 else {
-                    *curYOffset = (Config::panelHeight + Config::reservedArea) * getOwner()->m_scale;
-                    curSwipeOffset = -10.;
+                    *curYOffset    = travel;
+                    curSwipeOffset = swipeClosedOffset();
                 }
             }
             else {
                 // cancel
-                if (!active) show();
+                if (!active)
+                    show();
                 else {
-                    *curYOffset = 0;
-                    curSwipeOffset = (Config::panelHeight + Config::reservedArea) * getOwner()->m_scale;
+                    *curYOffset    = 0;
+                    curSwipeOffset = travel;
                 }
             }
         }
         else {
-            if ((curSwipeOffset > swipeTravel * (1.f - cancelRatio)) || avgSwipeSpeed > swipeForceSpeed) {
-                if (!active) show();
+            if ((curSwipeOffset > travel * (1.F - Config::swipeCancelRatio)) || avgSwipeSpeed > Config::swipeForceSpeed) {
+                if (!active)
+                    show();
                 else {
-                    *curYOffset = 0;
-                    curSwipeOffset = (Config::panelHeight + Config::reservedArea) * getOwner()->m_scale;
+                    *curYOffset    = 0;
+                    curSwipeOffset = travel;
                 }
             }
             else {
                 // cancel
-                if (active) hide();
+                if (active)
+                    hide();
                 else {
-                    *curYOffset = (Config::panelHeight + Config::reservedArea) * getOwner()->m_scale;
-                    curSwipeOffset = -10.;
+                    *curYOffset    = travel;
+                    curSwipeOffset = swipeClosedOffset();
                 }
             }
         }

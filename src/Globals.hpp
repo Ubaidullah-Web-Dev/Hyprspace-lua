@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 #include <tuple>
 #include <type_traits>
 
@@ -85,6 +86,16 @@ namespace Config {
     extern bool disableBlur;
     extern float overrideAnimSpeed;
     extern float dragAlpha;
+    extern std::string exitKey;
+
+    extern int clickReleaseThresholdMs;
+    extern int swipeFingers;
+    extern int swipeDistance;
+    extern int swipeForceSpeed;
+    extern float swipeCancelRatio;
+    extern float swipeThreshold;
+    extern float swipeClosedPadding;
+    extern float workspaceScrollSpeed;
 }
 
 extern int numWorkspaces;

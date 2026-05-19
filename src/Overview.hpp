@@ -31,10 +31,14 @@ class CHyprspaceWidget {
     double avgSwipeSpeed = 0.;
     // number of swiping speed frames recorded
     int swipePoints = 0;
-    // on second thought, this seems redundant as we could just write to curYOffset while swiping
-    double curSwipeOffset = 10.;
+    // Swipe travel in monitor-scaled pixels, where 0 is hidden and panelTravel() is fully shown.
+    double curSwipeOffset = 0.;
 
     PHLANIMVAR<float> workspaceScrollOffset;
+
+    void restoreHiddenLayers();
+    void restoreFullscreenWindows();
+    void resetAnimationState(PHLMONITOR owner);
 
 public:
 
@@ -51,6 +55,7 @@ public:
     void hide();
 
     void updateConfig();
+    void cleanup(PHLMONITOR owner = nullptr);
 
     // should be called active or not
     void draw();
