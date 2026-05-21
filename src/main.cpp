@@ -281,31 +281,32 @@ void onRender(eRenderStage renderStage) {
         } else
             g_oAlpha = -1;
     } else if (renderStage == eRenderStage::RENDER_POST_WINDOWS) {
-        const auto widget = getWidgetForMonitor(g_pHyprRenderer->m_renderData.pMonitor);
-        if (!widget || !widget->getOwner()) {
+        // Restore dragged window alpha so Hyprland's own passes don't break,
+        // but do NOT draw the overview here — it would be covered by
+        // top/overlay layers and the compositor's drag overlay.
+        if (g_oAlpha != -1) {
+            const auto dragTarget = g_layoutManager->dragController()->target();
+            const auto curWindow  = dragTarget ? dragTarget->window() : nullptr;
+            const auto widget = getWidgetForMonitor(g_pHyprRenderer->m_renderData.pMonitor);
+            if (curWindow && widget && widget->getOwner()) {
+                curWindow->alpha(Desktop::View::WINDOW_ALPHA_ACTIVE)->setValueAndWarp(Config::dragAlpha);
+                curWindow->m_ruleApplicator->noBlur().unset(Desktop::Types::PRIORITY_SET_PROP);
+                const auto time = Time::steadyNow();
+                (*(tRenderWindow)pRenderWindow)(g_pHyprRenderer.get(), curWindow, widget->getOwner(), time, true, Render::RENDER_PASS_MAIN, false, false);
+                curWindow->m_ruleApplicator->noBlur().unset(Desktop::Types::PRIORITY_SET_PROP);
+                curWindow->alpha(Desktop::View::WINDOW_ALPHA_ACTIVE)->setValueAndWarp(g_oAlpha);
+            }
             g_oAlpha = -1;
-            return;
         }
+    } else if (renderStage == eRenderStage::RENDER_LAST_MOMENT) {
+        // Draw the overview at the very last moment so it is on top of
+        // everything: normal windows, top/overlay layers, and the
+        // compositor's drag-window overlay.
+        const auto widget = getWidgetForMonitor(g_pHyprRenderer->m_renderData.pMonitor);
+        if (!widget || !widget->getOwner())
+            return;
 
         widget->draw();
-
-        if (g_oAlpha == -1)
-            return;
-
-        const auto dragTarget = g_layoutManager->dragController()->target();
-        const auto curWindow  = dragTarget ? dragTarget->window() : nullptr;
-        if (!curWindow) {
-            g_oAlpha = -1;
-            return;
-        }
-
-        curWindow->alpha(Desktop::View::WINDOW_ALPHA_ACTIVE)->setValueAndWarp(Config::dragAlpha);
-        curWindow->m_ruleApplicator->noBlur().unset(Desktop::Types::PRIORITY_SET_PROP);
-        const auto time = Time::steadyNow();
-        (*(tRenderWindow)pRenderWindow)(g_pHyprRenderer.get(), curWindow, widget->getOwner(), time, true, Render::RENDER_PASS_MAIN, false, false);
-        curWindow->m_ruleApplicator->noBlur().unset(Desktop::Types::PRIORITY_SET_PROP);
-        curWindow->alpha(Desktop::View::WINDOW_ALPHA_ACTIVE)->setValueAndWarp(g_oAlpha);
-        g_oAlpha = -1;
     }
 }
 
