@@ -583,8 +583,8 @@ void reloadConfig() {
         if (!widget)
             continue;
 
-        if (widget->isActive())
-            widget->hide();
+        // if (widget->isActive())
+        //     widget->hide();
         endSwipeIfNeeded(widget);
         widget->updateConfig();
     }
