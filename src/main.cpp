@@ -58,6 +58,9 @@ bool Config::exitOnSwitch = false;
 bool Config::showNewWorkspace = true;
 bool Config::showEmptyWorkspace = true;
 bool Config::showSpecialWorkspace = false;
+bool Config::overrideGaps = false;
+int Config::gapsIn = 5;
+int Config::gapsOut = 10;
 bool Config::disableGestures = false;
 bool Config::reverseSwipe = false;
 bool Config::disableBlur = false;
@@ -114,9 +117,9 @@ struct SPluginConfigValues {
       affectStrut;
   SP<CBoolValue> autoDrag, autoScroll, exitOnClick, switchOnDrop, exitOnSwitch,
       showNewWorkspace, showEmptyWorkspace, showSpecialWorkspace;
+  SP<CBoolValue> disableGestures, reverseSwipe, disableBlur, overrideGaps;
   SP<CIntValue> swipeFingers, swipeDistance, swipeForceSpeed,
-      clickReleaseThresholdMs;
-  SP<CBoolValue> disableGestures, reverseSwipe, disableBlur;
+      clickReleaseThresholdMs, gapsIn, gapsOut;
   SP<CFloatValue> swipeCancelRatio, swipeThreshold, swipeClosedPadding,
       workspaceScrollSpeed, overrideAnimSpeed, dragAlpha;
   SP<CStringValue> exitKey;
@@ -306,6 +309,16 @@ void registerConfigValues() {
       SP<CBoolValue>(new CBoolValue("plugin:hyprspace:show_special_workspace",
                                     "Display the special workspace preview",
                                     Config::showSpecialWorkspace)));
+  g_pluginConfigValues.overrideGaps = registerPluginValue(
+      SP<CBoolValue>(new CBoolValue("plugin:hyprspace:override_gaps",
+                                    "Override gaps inside the overview",
+                                    Config::overrideGaps)));
+  g_pluginConfigValues.gapsIn = registerPluginValue(
+      SP<CIntValue>(new CIntValue("plugin:hyprspace:gaps_in",
+                                  "Inner gaps override", Config::gapsIn)));
+  g_pluginConfigValues.gapsOut = registerPluginValue(
+      SP<CIntValue>(new CIntValue("plugin:hyprspace:gaps_out",
+                                  "Outer gaps override", Config::gapsOut)));
 
   g_pluginConfigValues.disableGestures =
       registerPluginValue(SP<CBoolValue>(new CBoolValue(
@@ -754,6 +767,12 @@ void reloadConfig() {
       g_pluginConfigValues.showEmptyWorkspace, Config::showEmptyWorkspace);
   Config::showSpecialWorkspace = readBoolValue(
       g_pluginConfigValues.showSpecialWorkspace, Config::showSpecialWorkspace);
+  Config::overrideGaps = readBoolValue(
+      g_pluginConfigValues.overrideGaps, Config::overrideGaps);
+  Config::gapsIn = readIntValue(
+      g_pluginConfigValues.gapsIn, Config::gapsIn);
+  Config::gapsOut = readIntValue(
+      g_pluginConfigValues.gapsOut, Config::gapsOut);
 
   Config::disableGestures = readBoolValue(g_pluginConfigValues.disableGestures,
                                           Config::disableGestures);

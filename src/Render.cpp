@@ -449,14 +449,12 @@ void CHyprspaceWidget::draw() {
         if (w->m_workspace == ws && !w->m_isFloating) {
           double wX = curWorkspaceRectOffsetX +
                       ((w->m_realPosition->value().x - owner->m_position.x) *
-                       monitorSizeScaleFactor * owner->m_scale);
+                       monitorSizeScaleFactor);
           double wY = curWorkspaceRectOffsetY +
                       ((w->m_realPosition->value().y - owner->m_position.y) *
-                       monitorSizeScaleFactor * owner->m_scale);
-          double wW = w->m_realSize->value().x * monitorSizeScaleFactor *
-                      owner->m_scale;
-          double wH = w->m_realSize->value().y * monitorSizeScaleFactor *
-                      owner->m_scale;
+                       monitorSizeScaleFactor);
+          double wW = w->m_realSize->value().x * monitorSizeScaleFactor;
+          double wH = w->m_realSize->value().y * monitorSizeScaleFactor;
           if (!(wW > 0 && wH > 0))
             continue;
           CBox curWindowBox = {wX, wY, wW, wH};
@@ -474,14 +472,12 @@ void CHyprspaceWidget::draw() {
             ws->getLastFocusedWindow() != w) {
           double wX = curWorkspaceRectOffsetX +
                       ((w->m_realPosition->value().x - owner->m_position.x) *
-                       monitorSizeScaleFactor * owner->m_scale);
+                       monitorSizeScaleFactor);
           double wY = curWorkspaceRectOffsetY +
                       ((w->m_realPosition->value().y - owner->m_position.y) *
-                       monitorSizeScaleFactor * owner->m_scale);
-          double wW = w->m_realSize->value().x * monitorSizeScaleFactor *
-                      owner->m_scale;
-          double wH = w->m_realSize->value().y * monitorSizeScaleFactor *
-                      owner->m_scale;
+                       monitorSizeScaleFactor);
+          double wW = w->m_realSize->value().x * monitorSizeScaleFactor;
+          double wH = w->m_realSize->value().y * monitorSizeScaleFactor;
           if (!(wW > 0 && wH > 0))
             continue;
           CBox curWindowBox = {wX, wY, wW, wH};
@@ -497,14 +493,12 @@ void CHyprspaceWidget::draw() {
           const auto w = ws->getLastFocusedWindow();
           double wX = curWorkspaceRectOffsetX +
                       ((w->m_realPosition->value().x - owner->m_position.x) *
-                       monitorSizeScaleFactor * owner->m_scale);
+                       monitorSizeScaleFactor);
           double wY = curWorkspaceRectOffsetY +
                       ((w->m_realPosition->value().y - owner->m_position.y) *
-                       monitorSizeScaleFactor * owner->m_scale);
-          double wW = w->m_realSize->value().x * monitorSizeScaleFactor *
-                      owner->m_scale;
-          double wH = w->m_realSize->value().y * monitorSizeScaleFactor *
-                      owner->m_scale;
+                       monitorSizeScaleFactor);
+          double wW = w->m_realSize->value().x * monitorSizeScaleFactor;
+          double wH = w->m_realSize->value().y * monitorSizeScaleFactor;
           if (!(wW > 0 && wH > 0))
             continue;
           CBox curWindowBox = {wX, wY, wW, wH};
