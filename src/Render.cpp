@@ -188,7 +188,7 @@ void renderLayerStub(PHLLS pLayer, PHLMONITOR pMonitor, CBox rectOverride,
 }
 
 // NOTE: rects and clipbox positions are relative to the monitor, while
-// damagebox and layers are not, what the fuck? xd
+// damagebox and layers are not, what the fuck!!
 void CHyprspaceWidget::draw() {
 
   workspaceBoxes.clear();
@@ -223,8 +223,7 @@ void CHyprspaceWidget::draw() {
             ((Config::panelHeight + Config::reservedArea) * owner->m_scale))) -
           (bottomInvert * curYOffset->value()),
       owner->m_transformedSize.x,
-      (Config::panelHeight + Config::reservedArea) *
-          owner->m_scale}; // TODO: update size on monitor change
+      (Config::panelHeight + Config::reservedArea) * owner->m_scale};
 
   // set widgetBox relative to current monitor for rendering panel
   widgetBox.x -= owner->m_position.x;
@@ -300,9 +299,7 @@ void CHyprspaceWidget::draw() {
     // hyprsplit/split-monitor-workspaces compatibility
     if (numWorkspaces > 0) {
       wsIDStart = std::min<int>(numWorkspaces * ownerID + 1, lowestID);
-      wsIDEnd = std::max<int>(
-          numWorkspaces * ownerID + 1,
-          highestID); // always show the initial workspace for current monitor
+      wsIDEnd = std::max<int>(numWorkspaces * ownerID + 1, highestID);
     }
 
     for (int i = wsIDStart; i <= wsIDEnd; i++) {
@@ -317,7 +314,6 @@ void CHyprspaceWidget::draw() {
   // add a new empty workspace at last
   if (Config::showNewWorkspace) {
     // get the lowest empty workspce id after the highest id of current
-    // workspace
     while (g_pCompositor->getWorkspaceByID(highestID) != nullptr)
       highestID++;
     workspaces.push_back(highestID);
@@ -330,7 +326,7 @@ void CHyprspaceWidget::draw() {
   double monitorSizeScaleFactor =
       ((Config::panelHeight - 2 * Config::workspaceMargin) /
        (owner->m_transformedSize.y)) *
-      owner->m_scale; // scale box with panel height
+      owner->m_scale;
   double workspaceBoxW = owner->m_transformedSize.x * monitorSizeScaleFactor;
   double workspaceBoxH = owner->m_transformedSize.y * monitorSizeScaleFactor;
   double workspaceGroupWidth =
@@ -364,7 +360,6 @@ void CHyprspaceWidget::draw() {
     const auto ws = g_pCompositor->getWorkspaceByID(wsID);
     CBox curWorkspaceBox = {curWorkspaceRectOffsetX, curWorkspaceRectOffsetY,
                             workspaceBoxW, workspaceBoxH};
-
     // workspace background rect (NOT background layer) and border
     if (ws == owner->m_activeWorkspace) {
       if (Config::workspaceBorderSize >= 1 &&
@@ -374,11 +369,7 @@ void CHyprspaceWidget::draw() {
                      Config::workspaceBorderSize);
       }
       if (!Config::disableBlur) {
-        renderRectWithBlur(
-            curWorkspaceBox,
-            Config::workspaceActiveBackground); // cant really round it until I
-                                                // find a proper way to clip
-                                                // windows to a rounded rect
+        renderRectWithBlur(curWorkspaceBox, Config::workspaceActiveBackground);
       } else {
         renderRect(curWorkspaceBox, Config::workspaceActiveBackground);
       }
@@ -532,12 +523,6 @@ void CHyprspaceWidget::draw() {
         }
     }
 
-    // Resets workspaceBox to scaled absolute coordinates for input detection.
-    // While rendering is done in pixel coordinates, input detection is done in
-    // scaled coordinates, taking into account monitor scaling.
-    // Since the monitor position is already given in scaled coordinates,
-    // we only have to scale all relative coordinates, then add them to the
-    // monitor position to get a scaled absolute position.
     curWorkspaceBox.scale(1 / owner->m_scale);
 
     curWorkspaceBox.x += owner->m_position.x;

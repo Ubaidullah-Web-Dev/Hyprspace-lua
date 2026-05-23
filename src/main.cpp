@@ -309,13 +309,12 @@ void registerConfigValues() {
       SP<CBoolValue>(new CBoolValue("plugin:hyprspace:show_special_workspace",
                                     "Display the special workspace preview",
                                     Config::showSpecialWorkspace)));
-  g_pluginConfigValues.overrideGaps = registerPluginValue(
-      SP<CBoolValue>(new CBoolValue("plugin:hyprspace:override_gaps",
-                                    "Override gaps inside the overview",
-                                    Config::overrideGaps)));
-  g_pluginConfigValues.gapsIn = registerPluginValue(
-      SP<CIntValue>(new CIntValue("plugin:hyprspace:gaps_in",
-                                  "Inner gaps override", Config::gapsIn)));
+  g_pluginConfigValues.overrideGaps =
+      registerPluginValue(SP<CBoolValue>(new CBoolValue(
+          "plugin:hyprspace:override_gaps", "Override gaps inside the overview",
+          Config::overrideGaps)));
+  g_pluginConfigValues.gapsIn = registerPluginValue(SP<CIntValue>(new CIntValue(
+      "plugin:hyprspace:gaps_in", "Inner gaps override", Config::gapsIn)));
   g_pluginConfigValues.gapsOut = registerPluginValue(
       SP<CIntValue>(new CIntValue("plugin:hyprspace:gaps_out",
                                   "Outer gaps override", Config::gapsOut)));
@@ -767,12 +766,10 @@ void reloadConfig() {
       g_pluginConfigValues.showEmptyWorkspace, Config::showEmptyWorkspace);
   Config::showSpecialWorkspace = readBoolValue(
       g_pluginConfigValues.showSpecialWorkspace, Config::showSpecialWorkspace);
-  Config::overrideGaps = readBoolValue(
-      g_pluginConfigValues.overrideGaps, Config::overrideGaps);
-  Config::gapsIn = readIntValue(
-      g_pluginConfigValues.gapsIn, Config::gapsIn);
-  Config::gapsOut = readIntValue(
-      g_pluginConfigValues.gapsOut, Config::gapsOut);
+  Config::overrideGaps =
+      readBoolValue(g_pluginConfigValues.overrideGaps, Config::overrideGaps);
+  Config::gapsIn = readIntValue(g_pluginConfigValues.gapsIn, Config::gapsIn);
+  Config::gapsOut = readIntValue(g_pluginConfigValues.gapsOut, Config::gapsOut);
 
   Config::disableGestures = readBoolValue(g_pluginConfigValues.disableGestures,
                                           Config::disableGestures);
