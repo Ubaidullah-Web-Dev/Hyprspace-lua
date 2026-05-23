@@ -101,7 +101,7 @@ local function build_config()
         panel_border_width            = 2,
         workspace_margin              = 10,
         reserved_area                 = 35,
-        workspace_border_size         = 1,
+        workspace_border_size         = 3,
 
         adaptive_height               = false,
         center_aligned                = true,
