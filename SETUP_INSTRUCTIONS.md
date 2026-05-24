@@ -51,11 +51,6 @@ The plugin is automatically initialized on Hyprland startup via your plugins con
 require("Hyprspace.Hyprspace").setup({
     -- Point to your newly compiled local binary
     plugin_path = HOME .. "/.config/Hyprspace/Hyprspace.so",
-    panel_height = 185,
-    reserved_area = 5,
-    switch_on_drop = true,
-    exit_on_switch = true,
-    disable_gestures = true, -- Disables internal C++ gestures in favor of trackpad.lua
 })
 ```
 
