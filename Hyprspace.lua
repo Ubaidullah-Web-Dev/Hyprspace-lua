@@ -114,11 +114,15 @@ local function ensure_plugin_loaded()
     end
 
     local path = resolve_plugin_path()
-    if not path then
-        return false
+    if path then
+        hl.exec_cmd("hyprctl plugin load " .. shell_quote(path))
+        if plugin_loaded() then
+            return true
+        end
     end
 
-    hl.exec_cmd("hyprctl plugin load " .. shell_quote(path))
+    -- hyprpm: enabled plugins may not be loaded yet when Lua config runs
+    hl.exec_cmd("hyprpm reload")
     return plugin_loaded()
 end
 
