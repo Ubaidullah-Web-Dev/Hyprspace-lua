@@ -1,5 +1,6 @@
 #include "Overview.hpp"
 #include "Globals.hpp"
+#include <hyprland/src/config/legacy/ConfigManager.hpp>
 
 // FIXME: preserve original workspace rules
 void CHyprspaceWidget::updateLayout() {
@@ -10,14 +11,17 @@ void CHyprspaceWidget::updateLayout() {
     const auto pMonitor = getOwner();
     if (!pMonitor) return;
 
-    static auto PGAPSINDATA = CConfigValue<Hyprlang::CUSTOMTYPE>("general:gaps_in");
-    static auto PGAPSOUTDATA = CConfigValue<Hyprlang::CUSTOMTYPE>("general:gaps_out");
-    auto* const PGAPSIN = (CCssGapData*)(PGAPSINDATA.ptr())->getData();
-    auto* const PGAPSOUT = (CCssGapData*)(PGAPSOUTDATA.ptr())->getData();
+    static auto PGAPSINDATA  = CConfigValue<Config::IComplexConfigValue>("general:gaps_in");
+    static auto PGAPSOUTDATA = CConfigValue<Config::IComplexConfigValue>("general:gaps_out");
+    if (!PGAPSINDATA.good() || !PGAPSOUTDATA.good()) return;
 
-    // Set panel reservation as initial values BEFORE arranging layers,
-    // so that arrangeLayersForMonitor adds LS reservations as dynamic data
-    // on top of our panel reservation without double-counting.
+    const auto PGAPSINBASE  = PGAPSINDATA.ptr();
+    const auto PGAPSOUTBASE = PGAPSOUTDATA.ptr();
+    if (!PGAPSINBASE || !PGAPSOUTBASE || PGAPSINBASE->getDataType() != Config::CVD_TYPE_CSS_VALUE || PGAPSOUTBASE->getDataType() != Config::CVD_TYPE_CSS_VALUE) return;
+
+    auto* const PGAPSIN  = static_cast<Config::CCssGapData*>(PGAPSINBASE);
+    auto* const PGAPSOUT = static_cast<Config::CCssGapData*>(PGAPSOUTBASE);
+
     if (active) {
         if (!Config::onBottom)
             pMonitor->m_reservedArea = Desktop::CReservedArea(currentHeight, 0, 0, 0);
@@ -27,7 +31,6 @@ void CHyprspaceWidget::updateLayout() {
         pMonitor->m_reservedArea = Desktop::CReservedArea();
     }
 
-    // arrange layers adds LS dynamic reservations on top of our initial values
     g_pHyprRenderer->arrangeLayersForMonitor(ownerID);
 
     // gaps are created via workspace rules
@@ -37,29 +40,39 @@ void CHyprspaceWidget::updateLayout() {
     // Geneva Convention violation type hack but idc atm
     if (active) {
         const auto oActiveWorkspace = pMonitor->m_activeWorkspace;
+        if (!oActiveWorkspace) return;
 
         for (auto& ws : g_pCompositor->getWorkspaces()) { // HACK: recalculate other workspaces without reserved area
-            if (ws->m_monitor->m_id == ownerID && ws->m_id != oActiveWorkspace->m_id) {
+            if (ws && ws->m_monitor && ws->m_monitor->m_id == ownerID && ws->m_id != oActiveWorkspace->m_id) {
                 pMonitor->m_activeWorkspace = ws.lock();
                 const auto curRules = std::to_string(pMonitor->activeWorkspaceID()) + ", gapsin:" + PGAPSIN->toString() + ", gapsout:" + PGAPSOUT->toString();
-                if (Config::overrideGaps) g_pConfigManager->handleWorkspaceRules("", curRules);
+                if (Config::overrideGaps) {
+                    if (const auto legacy = Config::Legacy::mgr().lock())
+                        legacy->handleWorkspaceRules("", curRules);
+                }
                 g_layoutManager->recalculateMonitor(pMonitor);
             }
         }
         pMonitor->m_activeWorkspace = oActiveWorkspace;
 
         const auto curRules = std::to_string(pMonitor->activeWorkspaceID()) + ", gapsin:" + std::to_string(Config::gapsIn) + ", gapsout:" + std::to_string(Config::gapsOut);
-        if (Config::overrideGaps) g_pConfigManager->handleWorkspaceRules("", curRules);
+        if (Config::overrideGaps) {
+            if (const auto legacy = Config::Legacy::mgr().lock())
+                legacy->handleWorkspaceRules("", curRules);
+        }
         g_layoutManager->recalculateMonitor(pMonitor);
 
     }
     else {
         for (auto& ws : g_pCompositor->getWorkspaces()) {
-            if (ws->m_monitor->m_id == ownerID) {
+            if (ws && ws->m_monitor && ws->m_monitor->m_id == ownerID) {
                 const auto curRules = std::to_string(ws->m_id) + ", gapsin:" + PGAPSIN->toString() + ", gapsout:" + PGAPSOUT->toString();
-                if (Config::overrideGaps) g_pConfigManager->handleWorkspaceRules("", curRules);
-                g_layoutManager->recalculateMonitor(pMonitor);
+                if (Config::overrideGaps) {
+                    if (const auto legacy = Config::Legacy::mgr().lock())
+                        legacy->handleWorkspaceRules("", curRules);
+                }
             }
         }
+        g_layoutManager->recalculateMonitor(pMonitor);
     }
 }
